@@ -1,4 +1,8 @@
-# cc-hud
+# Claude Code Mods
+
+**cc-hud** is a Claude Code mod: it customizes the interface with a heads-up row and a live Agents pane. It is distributed as a plugin; the repository and install name remain `cc-hud`.
+
+Terminology reference: [Claude Code Mods are game changers](https://uxplanet.org/claude-code-mods-are-game-changers-39a566cddca5).
 
 **One row above the Claude Code prompt that shows your prompt cache, plan usage, the turn in progress, and running agents.** Click it for details, or open the Agents pane to see what every agent is doing.
 
