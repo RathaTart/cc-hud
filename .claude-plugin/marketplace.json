@@ -1,0 +1,13 @@
+{
+  "name": "cc-hud",
+  "description": "cc-hud: cache, plan usage, the turn in progress and agents above the Claude Code prompt.",
+  "owner": {
+    "name": "RathaTart"
+  },
+  "plugins": [
+    {
+      "name": "cc-hud",
+      "source": "./"
+    }
+  ]
+}

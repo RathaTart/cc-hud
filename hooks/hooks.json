@@ -1,0 +1,6 @@
+{
+  "description": "cc-hud (Mod): cache, keepwarm, plan usage and running subagents above the prompt; built on cache-tax 2.2.1.",
+  "modules": [
+    "./register.ts"
+  ]
+}
