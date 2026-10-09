@@ -121,7 +121,6 @@ cc-hud is inspired by these two projects and builds on them:
 
 - **[cache-tax](https://github.com/karanb192/cache-tax)** by Karan Bansal (MIT): the cache clock, keepwarm, the cold-send guard, and the cache icons.
 - **[savvy-progress](https://github.com/JohnnyVizz/claude-kit/tree/main/plugins/savvy-progress)** by JohnnyVizz: the idea of a pane with costumed agents.
-- The critter is fan-drawn pixel art of Claude's mascot, which belongs to Anthropic. cc-hud is not affiliated with Anthropic.
 
 The top screenshot is a real capture from the desktop app. The other previews are rendered from cc-hud's own layout code, icons, and sprites with sample data. Fonts and spacing in your client may differ slightly.
 
