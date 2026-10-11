@@ -1,6 +1,6 @@
 {
   "name": "cc-hud",
-  "version": "3.10.3",
+  "version": "3.10.4",
   "description": "A heads-up row above the Claude Code prompt: prompt cache and keepwarm (from cache-tax by Karan Bansal, MIT), plan usage with forecasts, the turn in progress and running agents, plus an Agents pane with each agent's tool calls and answers. Keepwarm pings are model requests and cost tokens. Requires Claude Code 2.1.287+.",
   "author": {
     "name": "RathaTart (cc-hud); Karan Bansal (cache-tax)"

@@ -61,7 +61,7 @@ To open it, click the agent count, click `N tools`, or run `/hud agents`. It ope
   <img alt="The Agents pane folded, with Claude (main) open on this turn's tool calls, and with a subagent open on its result" src="assets/pane-dark.png" width="900">
 </picture>
 
-- **Claude (main)** is pinned first, with each **subagent** below it, newest first. Each row shows its model, tokens, cost, time, and status (● running, ✓ done, ✗ failed).
+- **Claude (main)** is pinned first, with each **subagent** below it, newest first. Each row shows its model, tokens, cost, time, and status (● running, ✓ done, ✗ failed). The pane keeps the newest 100 subagents.
 - **Every row starts folded.** Click a name to open it and see:
   - what the agent is doing now
   - its task, or what you asked
@@ -81,6 +81,8 @@ Each agent dresses for its task. The main Claude dresses for the tool it's using
 - **Failed** agents turn gray and are knocked out.
 
 Nothing moves if your system asks for reduced motion. The terminal shows each costume as an emoji (🔍 🔧 🧪 …) instead.
+
+The desktop app draws up to 12 costumes: Claude (main) first, then running agents, then the newest. Other rows show the emoji, so a workflow with dozens of agents still draws quickly.
 
 ## Light and dark
 

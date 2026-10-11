@@ -2,7 +2,7 @@ import { describe, expect, mock, test, tier, type MockClock, type Mounted, type 
 import type { AgentInfo, CommandRunInput, ConfigSetInput, ModelForkResult, On, PromptSubmitInput, RenderPropsOf, SessionRateLimit, SessionStartInput, TurnCompleteInput, TurnUsage } from 'claude-code'
 
 import { statusIcons } from '../hooks/status-icons'
-import { outfitsFit, skinOf, spriteSvg } from '../hooks/sprites'
+import { outfitsFit, SKIN_GLYPH, skinOf, spriteSvg } from '../hooks/sprites'
 import { redactSecrets } from '../hooks/redact'
 import { answerMarkdown, clockLine, fmtClock, fmtDuration, freshState, parseDuration, resetForClear, seedFromResume } from '../hooks/register'
 
@@ -1805,4 +1805,64 @@ describe('live clock', () => {
     expect((await row(ui))).toBe(' cache unknown no request yet · keepwarm off')
     expect((await $.command.run(run('cache-tax', ''))).text).toMatch(/state       no request yet this session/)
   })
+})
+
+describe('agents pane with a workflow of agents', () => {
+  const paneProps = { title: 'Agents', isFocused: false, bodyColumns: 80, placement: 'dock', scroll: { offset: 0, bodyRows: 20 } } as RenderPropsOf['Pane']
+  const agentAt = (i: number, status: AgentInfo['status']): AgentInfo => ({ id: `a${i}`, description: `write:b${i}:docs`, type: 'workflow-subagent', status })
+  const hasSprite = async (pane: Mounted<'desktop', 'Pane'>, id: string) => JSON.stringify((await pane.find({ key: `agent-${id}` }))?.children ?? []).includes('"type":"Svg"')
+
+  test('keeps the newest 100 agents, lets a dropped one go for good, and keeps the tree small', async ($, on) => {
+    mock.clock(on, { now: START })
+    // 150 agents the engine lists that this load never saw spawned, all stopped by a usage limit.
+    const list = Array.from({ length: 150 }, (_, i) => agentAt(i + 1, 'killed'))
+    world(on, [], { store: new Map(), detailed: false, agents: list })
+    await $.session.start({ ...session, surface: 'desktop', isInteractive: true })
+    const pane = await $.ui.mount({ plugin: 'cc-hud', surface: 'desktop', component: 'Pane', requestId: 'hud-agents', props: paneProps } as never) as Mounted<'desktop', 'Pane'>
+    const rows = async () => (await pane.findAll({ type: 'Button' })).filter(b => b.key?.startsWith('agent-open-a')).length
+    expect(await rows()).toBe(100)
+    expect(await pane.find({ key: 'agent-a150' })).toBeDefined()
+    expect(await pane.find({ key: 'agent-a51' })).toBeDefined()
+    expect(await pane.find({ key: 'agent-a50' })).toBeUndefined()
+    // A redraw lists the same agents: the 50 let go do not come back as new and push others out.
+    await pane.press({ key: 'agent-open-main' })
+    await pane.press({ key: 'agent-open-main' })
+    expect(await rows()).toBe(100)
+    expect(await pane.find({ key: 'agent-a50' })).toBeUndefined()
+    expect(await pane.find({ key: 'agent-a150' })).toBeDefined()
+    // Twelve sprites at most; the other rows wear their costume's emoji. 150 agents drew about 2.2 MB before; 100 rows now about 160 K.
+    expect(await pane.findAll({ type: 'Svg' })).toHaveLength(12)
+    expect(JSON.stringify(await pane.drawn()).length).toBeLessThan(200_000)
+  })
+
+  test('gives the sprites to Claude (main) and the running agents before the newest finished ones', async ($, on) => {
+    mock.clock(on, { now: START })
+    // The oldest five still run; fifteen newer ones have finished.
+    const list = Array.from({ length: 20 }, (_, i) => agentAt(i + 1, i < 5 ? 'running' : 'completed'))
+    world(on, [], { store: new Map(), detailed: false, agents: list })
+    await $.session.start({ ...session, surface: 'desktop', isInteractive: true })
+    const pane = await $.ui.mount({ plugin: 'cc-hud', surface: 'desktop', component: 'Pane', requestId: 'hud-agents', props: paneProps } as never) as Mounted<'desktop', 'Pane'>
+    expect(await pane.findAll({ type: 'Svg' })).toHaveLength(12)
+    expect(await hasSprite(pane, 'main')).toBe(true)
+    for (const i of [1, 2, 3, 4, 5]) expect(await hasSprite(pane, `a${i}`)).toBe(true)
+    // Six sprites are left for the finished: the newest six, a20 down to a15.
+    for (const i of [20, 15]) expect(await hasSprite(pane, `a${i}`)).toBe(true)
+    for (const i of [14, 6]) expect(await hasSprite(pane, `a${i}`)).toBe(false)
+    expect((await pane.find({ key: 'agent-a6' }))?.text?.startsWith(SKIN_GLYPH[skinOf('workflow-subagent', 'write:b6:docs')])).toBe(true)
+  })
+})
+
+test('a sprite draws each run of same-colored pixels as one rect', () => {
+  const svg = spriteSvg('chef', 'running')
+  const rects = [...svg.matchAll(/<rect x="(\d+)" y="(\d+)" width="(\d+)" height="1" fill="[^"]+"\/>/g)]
+  expect(rects.length).toBeGreaterThan(0)
+  expect(rects.some(r => Number(r[3]) > 1)).toBe(true)
+  // No two rects cover the same pixel.
+  const covered = new Set<string>()
+  for (const r of rects) for (let i = 0; i < Number(r[3]); i++) {
+    const at = `${Number(r[1]) + i},${r[2]}`
+    expect(covered.has(at)).toBe(false)
+    covered.add(at)
+  }
+  expect(svg.length).toBeLessThan(7000)
 })

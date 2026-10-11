@@ -552,20 +552,33 @@ export function spriteSvg(skin: Skin, state: SpriteState, width = 28, mood: Spri
   const groups: Record<string, string[]> = { 'cch-body': [], 'cch-la': [], 'cch-lb': [], prop: [], fx: [] }
   let propMotion: Motion | undefined
   let fxMotion: Motion | undefined
+  // A run of same-colored pixels in one group is one rect, so a sprite is a few kilobytes rather than one rect a pixel.
   for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const base = BASE[y]![x]!
-      let fill = body[base]
-      let group = LEG_ROWS.has(y) && base === 'b' ? legGroup(x) ?? 'cch-body' : 'cch-body'
-      for (const layer of layers) {
-        const over = layer.rows[y]?.[x]
-        if (over === undefined || over === ' ' || !layer.palette[over]) continue
-        fill = layer.palette[over]
-        group = layer.prop?.includes(over) ? 'prop' : layer.fx?.includes(over) ? 'fx' : 'cch-body'
-        if (group === 'prop') propMotion = layer.motion
-        if (group === 'fx') fxMotion = layer.fxMotion
+    let start = 0
+    let runFill = ''
+    let runGroup = ''
+    for (let x = 0; x <= W; x++) {
+      let fill = ''
+      let group = ''
+      if (x < W) {
+        const base = BASE[y]![x]!
+        fill = body[base] ?? ''
+        group = LEG_ROWS.has(y) && base === 'b' ? legGroup(x) ?? 'cch-body' : 'cch-body'
+        for (const layer of layers) {
+          const over = layer.rows[y]?.[x]
+          if (over === undefined || over === ' ' || !layer.palette[over]) continue
+          fill = layer.palette[over]!
+          group = layer.prop?.includes(over) ? 'prop' : layer.fx?.includes(over) ? 'fx' : 'cch-body'
+          if (group === 'prop') propMotion = layer.motion
+          if (group === 'fx') fxMotion = layer.fxMotion
+        }
+        if (!fill) group = ''
       }
-      if (fill) groups[group]!.push(`<rect x="${x}" y="${y}" width="1" height="1" fill="${fill}"/>`)
+      if (fill === runFill && group === runGroup) continue
+      if (runFill) groups[runGroup]!.push(`<rect x="${start}" y="${y}" width="${x - start}" height="1" fill="${runFill}"/>`)
+      start = x
+      runFill = fill
+      runGroup = group
     }
   }
   const g = (cls: string, rects: string[]) => (rects.length ? `<g class="${cls}">${rects.join('')}</g>` : '')

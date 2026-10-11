@@ -100,6 +100,8 @@ export type State = {
   lastTurnMs: number
   // The session's subagents as the agents pane lists them, and the redraw that ticks their clocks while any runs.
   agentRuns: AgentRun[]
+  // Every agent id the pane has kept, so one the cap let go is not listed again as new.
+  agentSeen: Set<string>
   agentTick: { cancel: () => void } | null
   // The agent whose row is open in the pane, showing its task, its calls and its answer.
   expandedAgent: string | null
@@ -213,7 +215,12 @@ const HISTORY_DAYS = 14
 /** cc-hud's agents pane: each subagent of the session, dressed for its task. */
 const AGENTS_PANE = 'hud-agents'
 /** Agents kept for the pane: the session's latest. */
-const AGENT_LOG_SIZE = 30
+const AGENT_LOG_SIZE = 100
+/**
+ * Rows the desktop pane draws with an animated sprite: Claude (main), then running agents, then the newest. The rest
+ * show their costume's emoji, so a workflow's dozens of agents do not send the pane a tree too large to draw.
+ */
+const SPRITE_ROWS = 12
 
 /** The subagent states the row counts as running. */
 const ACTIVE_AGENT: ReadonlySet<string> = new Set(['pending', 'running', 'waiting'])
@@ -698,7 +705,7 @@ export function freshState(): State {
     hasBand: false, sid: '', deadline: 0, every: PING_AFTER_MS, always: false, forSession: false, lastRequestAt: 0, lastModel: null, ctx: 0, compacted: false,
     guard: 'refuse', ackedAt: 0, coldWritePending: false, misses: [], pending: null, last: null, stopped: null,
     clockOn: false, clockSid: '', pinging: false, held: false, epoch: 0, twinWarned: false, boundary: null, tick: null, limits: [], detailed: false,
-    usd: undefined, startedAt: 0, contextPercent: undefined, saved: 0, turnStart: 0, tools: 0, turnTick: null, toolLog: [], lastTurnMs: 0, agentRuns: [], agentTick: null, expandedAgent: null, lastPrompt: '', lastAnswer: '', background: 0, scheduled: 0,
+    usd: undefined, startedAt: 0, contextPercent: undefined, saved: 0, turnStart: 0, tools: 0, turnTick: null, toolLog: [], lastTurnMs: 0, agentRuns: [], agentSeen: new Set(), agentTick: null, expandedAgent: null, lastPrompt: '', lastAnswer: '', background: 0, scheduled: 0,
     chime: true, alerted: [],
   }
 }
@@ -888,10 +895,12 @@ export const register: Register = on => {
       if (known && known.status === 'running' && status !== 'running') {
         known.status = status
         known.endedAt ??= now
-      } else if (!known && !a.teammateId) {
+      } else if (!known && !a.teammateId && !s.agentSeen.has(a.id)) {
         s.agentRuns.push({ id: a.id, task: a.description, type: a.type, model: '', skin: skinOf(a.type, a.description), startedAt: now, status, tokens: 0, usd: null, prompt: '', calls: [] })
+        s.agentSeen.add(a.id)
       }
     }
+    s.agentRuns = s.agentRuns.slice(-AGENT_LOG_SIZE)
     const runs = [...s.agentRuns].reverse()
     // The main Claude, pinned first: at work while a turn runs, asleep while it waits for the person, dressed for its tool.
     const isWorking = !!s.turnStart
@@ -906,7 +915,9 @@ export const register: Register = on => {
     const usd = runs.reduce((n, r) => n + (r.usd ?? 0), 0)
     const tokens = runs.reduce((n, r) => n + r.tokens, 0)
     const mark = { running: ['●', 'suggestion'], done: ['✓', 'success'], failed: ['✗', 'error'] } as const
-    const sprite = (r: AgentRun) => e.surface === 'desktop' && 'Svg' in ui
+    // Sprites for Claude (main), then running agents, then the newest; the other rows wear their costume's emoji.
+    const withSprite = new Set([main, ...runs.filter(r => r.status === 'running'), ...runs.filter(r => r.status !== 'running')].slice(0, SPRITE_ROWS).map(r => r.id))
+    const sprite = (r: AgentRun) => e.surface === 'desktop' && 'Svg' in ui && withSprite.has(r.id)
       ? ui.Svg({
         source: spriteSvg(r.skin, r.status, SPRITE_WIDTH, { isWaiting: r.isWaiting, isParty: r.status === 'done' && r.endedAt !== undefined && now - r.endedAt < PARTY_MS }),
         width: SPRITE_WIDTH, height: SPRITE_HEIGHT, alt: r.skin,
@@ -1284,6 +1295,7 @@ export const register: Register = on => {
         startedAt: await $.clock.now(), status: 'running', tokens: 0, usd: null, prompt: e.prompt, calls: [],
       }
       s.agentRuns = [...s.agentRuns.filter(a => a.id !== run.id), run].slice(-AGENT_LOG_SIZE)
+      s.agentSeen.add(run.id)
       syncAgentTick($, s, run.startedAt)
     }
     if (s.hasBand) $.ui.invalidate('ui.render')
